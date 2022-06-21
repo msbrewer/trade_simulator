@@ -1,0 +1,55 @@
+import os
+from decimal import *
+
+def make_candles(blk:int, inf: str, outf: str) -> None:
+    deci = lambda a: Decimal(a)
+    start, high, low = [deci(a) for a in [0, 0, 0]]
+    tick = 1
+    p = ""
+    with open(inf, "r") as infbuff, open(outf, "w") as outfbuff:
+        for line in infbuff:
+            ts, o, h, l, c, close_ts = line.strip().split(",")
+            o, h, l, c = [deci(x) for x in [o, h, l, c]]
+            if tick == 1:
+                p = ts
+                cl = close_ts
+                start = o
+                low = l
+                high = h
+            else:
+                if l < low: low = l
+                if h > high: high = h
+            
+            if tick == blk:
+                tick = 1
+                outfbuff.write(f"{p},{cl},{start:.5f},{high:.5f},{low:.5f},{c:.5f}\n")
+            else:
+                tick += 1
+
+def make_ha_candles(inf: str, outf: str) -> None:
+    deci = lambda a: Decimal(a)
+    start, high, low, last_hopen, last_hclose = [deci(a) for a in [0, 0, 0, 0, 0]]
+    first_line = True
+    with open(inf, "r") as infbuff, open(outf, "w") as outfbuff:
+        for line in infbuff:
+            safe_line = line.strip()
+            ts, cl, o, h, l, c = safe_line.split(",")
+            o, h, l, c = [deci(x) for x in [o, h, l, c]]
+            hclose = ((o+h+l+c)/4)
+            if first_line:
+                hopen = ((o+c)/2)
+                first_line = False
+            else:
+                hopen = (last_hopen + last_hclose) / 2
+            direction = "down" if hclose < hopen else "up" 
+            outfbuff.write(f"{safe_line},{hopen:.5f},{hclose:.5f},{direction}\n")
+            last_hopen = hopen
+            last_hclose = hclose
+
+for n in range(49):
+    p = n * 5
+    p = 1 if p == 0 else p
+    tmp_file = f'output/out_{p}mins.csv'
+    make_candles(p, "input/fixed.csv", tmp_file)
+    make_ha_candles(tmp_file, f'output/out_ha_{p}mins.csv')
+    os.remove(tmp_file)
